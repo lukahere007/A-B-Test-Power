@@ -2,6 +2,8 @@
 
 **A/B Testing Power Analysis with Sample Size Adjustment in R**  
 📊 *Simulated Binary Outcome Dataset | R Portfolio Project*
+🔗 **Published Report on RPubs**  
+👉 [Click here to view the interactive report](http://rpubs.com/lukahere007/ab-test-power-analysis)
 
 ---
 
@@ -82,7 +84,7 @@ The following statistical plots were used to communicate findings:
 ## 📬 Contact
 
 *Luke Wamalwa*  
-[GitHub](https://github.com/lukahere007) | [LinkedIn](https://www.linkedin.com/in/your-profile/)  
+[GitHub](https://github.com/lukahere007) | [LinkedIn](https://www.linkedin.com/in/luke-wamalwa-83962492/)  
 This project is part of my **Data Science for Clinical Research** portfolio.
 
 ---
