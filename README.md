@@ -1,158 +1,90 @@
-📊 A/B Test Power Analysis in R
+# ⚖️ A/B-Test-Power
 
-Overview
+**A/B Testing Power Analysis with Sample Size Adjustment in R**  
+📊 *Simulated Binary Outcome Dataset | R Portfolio Project*
 
-This project provides a hands-on walkthrough of A/B testing with a focus on sample size adjustment to achieve adequate statistical power. Using simulated binary outcome data, we evaluate the impact of increasing sample size on:
+---
 
-Statistical significance (p-values)
+## 📁 Project Structure
 
-Power of the test
+This project demonstrates a step-by-step simulation and analysis of A/B testing under varying sample sizes.  
+It showcases how small sample sizes can lead to inconclusive results and how adjusting sample size improves statistical power, p-values, and conversion rate estimation.
 
-Conversion rate estimates
+---
 
-The analysis is implemented entirely in R and highlights key concepts in experimental design, hypothesis testing, and data visualization.
+## 💡 Objectives
 
-🎯 Objective
+- Simulate small-sample A/B test data (binary outcomes)
+- Calculate power using Cohen’s h and `pwr` package
+- Estimate required sample size to achieve 80% power
+- Compare small vs. adjusted samples in terms of:
+  - ✅ P-values
+  - ✅ Conversion rate differences
+  - ✅ Statistical power
+- Visualize results using multiple R libraries
 
-To demonstrate how underpowered experiments (e.g., small sample sizes) can lead to inconclusive results, and how increasing sample size can yield statistically significant outcomes and more reliable effect estimates.
+---
 
-🧪 Workflow Summary
+## 🛠️ Tools & Libraries
 
-1. Simulate Small Sample A/B Test
+- `pwr` for power and sample size calculation
+- `dplyr` for data wrangling
+- `ggplot2` for base visualization
+- `ggstatsplot` for statistical visualizations
+- `ggpubr` + `ggsignif` for annotated comparisons
+- `ggpmisc` for trendlines with R² equations
+- `gghighlight` for focused highlights
+- `knitr` for summary tables
 
-Group A conversion rate: p_A = 0.5
+---
 
-Group B conversion rate: p_B = 0.65
+## 📊 Analysis Summary
 
-Sample size per group: n = 25
+| Stage            | Sample Size | Conv_A | Conv_B | P-value | Power  |
+|------------------|-------------|--------|--------|---------|--------|
+| Small Sample     | 50          | 0.6400 | 0.7200 | 0.7618  | 0.1899 |
+| Adjusted Sample  | 339         | 0.4675 | 0.6509 | 0.0010  | 0.8010 |
 
-Steps:
+---
 
-Simulate binary outcomes
+## 📈 Visualizations
 
-Estimate conversion rates
+The following statistical plots were used to communicate findings:
 
-Perform chi-squared test
+- **ggstatsplot**: `ggbetweenstats()` for group comparisons with effect size and CI  
+- **ggpubr**: `ggboxplot()` with jitter + significance annotations  
+- **ggsignif**: bar plot with `geom_signif()` for visual hypothesis testing  
+- **ggpmisc**: polynomial regression fits with `stat_poly_eq()`  
+- **ggplot2**: trend lines, mean estimates with error bars  
+- **Comparison plot** of p-values across sampling strategies
 
-Calculate statistical power using Cohen’s h
+---
 
-2. Sample Size Calculation
+## 📌 Key Takeaways
 
-Target power: 80%
+- Small samples yielded inconclusive results (p > 0.05, power < 20%)
+- With 339 observations, the experiment achieved **80% power**
+- Conversion rate differences became statistically significant
+- 📉 Inadequate sample sizes reduce test reliability and can lead to false negatives
 
-Use pwr.2p.test() to estimate required sample size
+---
 
-3. Simulate Adequate Sample A/B Test
+## 📂 How to Run
 
-Re-run simulation using recommended sample size
+1. Clone this repository  
+2. Open `ab_test_power.R` in RStudio  
+3. Run sections sequentially (or knit as `.html`)  
+4. Required R version: `>= 4.3`  
+5. Ensure required libraries are installed
 
-Re-analyze and compare results with original small-sample scenario
+---
 
-4. Summary Table
+## 📬 Contact
 
-Includes:
+*Luke Wamalwa*  
+[GitHub](https://github.com/lukahere007) | [LinkedIn](https://www.linkedin.com/in/your-profile/)  
+This project is part of my **Data Science for Clinical Research** portfolio.
 
-Conversion rates for A and B
+---
 
-p-values
-
-Power
-
-📊 Visualizations
-
-We used the following libraries to generate informative visual summaries:
-
-Library
-
-Plot Type / Purpose
-
-ggstatsplot
-
-ggbetweenstats() for group comparison and test stats
-
-ggpubr
-
-ggbarplot() with CI bars and stat_compare_means()
-
-ggsignif
-
-Significance brackets for bar charts
-
-ggpmisc
-
-Polynomial trend line + regression equation
-
-gghighlight
-
-Enhanced group-wise emphasis in line/bar plots
-
-📦 Key Packages
-
-library(pwr)          # Power analysis
-library(dplyr)        # Data manipulation
-library(ggplot2)      # Visualization
-library(knitr)        # Summary table formatting
-library(ggstatsplot)  # Stats plots with inference details
-library(ggpubr)       # Bar/box plots with CI
-library(ggsignif)     # Add significance annotations
-library(ggpmisc)      # Regression lines and equations
-library(gghighlight)  # Emphasis in ggplots
-
-🧾 Example Output Table
-
-Stage
-
-Sample Size
-
-Conv A
-
-Conv B
-
-p-value
-
-Power
-
-Small Sample
-
-50
-
-0.6400
-
-0.7200
-
-0.7618
-
-0.1899
-
-Adjusted Sample
-
-339
-
-0.4675
-
-0.6509
-
-0.0010
-
-0.8010
-
-🧠 Insights
-
-Small sample sizes may fail to detect real effects even when they exist.
-
-Properly powered experiments reduce Type II errors.
-
-Visualization is critical to communicate uncertainty, effect size, and group differences.
-
-📁 Files Included
-
-ab_test_power.R: Full reproducible R script
-
-README.md: This overview
-
-Visual plots included in project repository
-
-📬 Contact
-
-Created by Luke WamalwaFeel free to connect on GitHub or submit issues and suggestions.
-
+> 📜 Licensed under MIT License
