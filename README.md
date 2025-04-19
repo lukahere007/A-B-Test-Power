@@ -1,13 +1,22 @@
-# A-B-Test-Power
-A/B Testing Power Analysis with Sample Size Adjustment in R
+📊 A/B Test Power Analysis in R
 
-This project demonstrates a step-by-step simulation and analysis of A/B testing under varying sample sizes. The goal is to evaluate the effect of increasing sample size on statistical power, p-values, and conversion estimates, using simulated binary data.
+Overview
 
-Objective
+This project provides a hands-on walkthrough of A/B testing with a focus on sample size adjustment to achieve adequate statistical power. Using simulated binary outcome data, we evaluate the impact of increasing sample size on:
 
-To explore how underpowered experiments (i.e., small sample sizes) can lead to inconclusive results, and how adjusting sample sizes can yield statistically significant outcomes and more reliable effect estimates.
+Statistical significance (p-values)
 
-Workflow Summary
+Power of the test
+
+Conversion rate estimates
+
+The analysis is implemented entirely in R and highlights key concepts in experimental design, hypothesis testing, and data visualization.
+
+🎯 Objective
+
+To demonstrate how underpowered experiments (e.g., small sample sizes) can lead to inconclusive results, and how increasing sample size can yield statistically significant outcomes and more reliable effect estimates.
+
+🧪 Workflow Summary
 
 1. Simulate Small Sample A/B Test
 
@@ -17,59 +26,79 @@ Group B conversion rate: p_B = 0.65
 
 Sample size per group: n = 25
 
-Analyze conversion rates and perform chi-squared test
+Steps:
 
-Calculate power of the test using Cohen's h
+Simulate binary outcomes
+
+Estimate conversion rates
+
+Perform chi-squared test
+
+Calculate statistical power using Cohen’s h
 
 2. Sample Size Calculation
 
 Target power: 80%
 
-Using pwr.2p.test to estimate required sample size to detect the effect
+Use pwr.2p.test() to estimate required sample size
 
-3. Simulate Large Sample A/B Test
+3. Simulate Adequate Sample A/B Test
 
-Re-run simulation using the recommended sample size
+Re-run simulation using recommended sample size
 
-Re-analyze and compare results to the small sample scenario
+Re-analyze and compare results with original small-sample scenario
 
 4. Summary Table
 
-A clean summary table using kable presents:
-
-Sample size
+Includes:
 
 Conversion rates for A and B
 
-P-values
+p-values
 
 Power
 
-5. Visualizations
+📊 Visualizations
 
-Several visualizations have been used to display the differences and improvements:
+We used the following libraries to generate informative visual summaries:
 
-ggstatsplot::ggbetweenstats for statistical comparison with effect size
+Library
 
-ggpubr::ggboxplot with p-value annotations
+Plot Type / Purpose
 
-ggsignif bar plots with significance levels
+ggstatsplot
 
-ggpmisc to show regression line with equation
+ggbetweenstats() for group comparison and test stats
 
-Confidence intervals using error bars
+ggpubr
 
-Key Packages Used
+ggbarplot() with CI bars and stat_compare_means()
 
-pwr for power analysis
+ggsignif
 
-dplyr for data manipulation
+Significance brackets for bar charts
 
-ggplot2 for general plotting
+ggpmisc
 
-ggstatsplot, ggpubr, ggsignif, ggpmisc, and gghighlight for enhanced statistical plotting
+Polynomial trend line + regression equation
 
-Summary Table Output (Example)
+gghighlight
+
+Enhanced group-wise emphasis in line/bar plots
+
+📦 Key Packages
+
+library(pwr)          # Power analysis
+library(dplyr)        # Data manipulation
+library(ggplot2)      # Visualization
+library(knitr)        # Summary table formatting
+library(ggstatsplot)  # Stats plots with inference details
+library(ggpubr)       # Bar/box plots with CI
+library(ggsignif)     # Add significance annotations
+library(ggpmisc)      # Regression lines and equations
+library(gghighlight)  # Emphasis in ggplots
+
+🧾 Example Output Table
 
 Stage
 
@@ -79,7 +108,7 @@ Conv A
 
 Conv B
 
-P-value
+p-value
 
 Power
 
@@ -87,49 +116,43 @@ Small Sample
 
 50
 
-0.64
+0.6400
 
-0.72
+0.7200
 
-0.76
+0.7618
 
-0.19
+0.1899
 
 Adjusted Sample
 
 339
 
-0.47
+0.4675
 
-0.65
+0.6509
 
-0.001
+0.0010
 
-0.80
+0.8010
 
-Interpretation
+🧠 Insights
 
-Small sample resulted in low statistical power (~19%) and a high p-value, failing to detect the difference between groups.
+Small sample sizes may fail to detect real effects even when they exist.
 
-After adjusting the sample size to achieve 80% power, a significant difference was observed (p = 0.001), with a narrower confidence interval.
+Properly powered experiments reduce Type II errors.
 
-How to Run
+Visualization is critical to communicate uncertainty, effect size, and group differences.
 
-Clone the repository:
+📁 Files Included
 
-git clone https://github.com/lukahere007/missing-data-imputation-analysis.git
+ab_test_power.R: Full reproducible R script
 
-Open the R script or R Notebook
+README.md: This overview
 
-Run section by section to follow the simulation
+Visual plots included in project repository
 
-License
+📬 Contact
 
-This project is licensed under the MIT License.
-
-Developed by Luke Wamalwa
-
-University of Kansas Medical Center
-
-Data Science & Statistics Program, 2025
+Created by Luke WamalwaFeel free to connect on GitHub or submit issues and suggestions.
 
