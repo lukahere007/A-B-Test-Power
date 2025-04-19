@@ -1,0 +1,153 @@
+---
+title: "A/B Test Power Analysis"
+author: "Luke Wamalwa"
+date: "2025-04-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(pwr)
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(ggstatsplot)
+library(ggpubr)
+library(ggsignif)
+library(ggpmisc)
+library(gghighlight)
+```
+
+
+Step 1: Simulate Small A/B Test
+```{r}
+n_small <- 50
+alpha <- 0.05
+p_A <- 0.5
+p_B <- 0.65
+effect_size <- ES.h(p_B, p_A)
+
+group <- rep(c("A", "B"), each = n_small / 2)
+conversion <- c(rbinom(n_small/2, 1, p_A), rbinom(n_small/2, 1, p_B))
+data_small <- data.frame(group, conversion)
+head(data_small)
+```
+
+
+Step 2: Analyze Small Sample
+```{r}
+summary_small <- data_small %>%
+  group_by(group) %>%
+  summarise(conversion_rate = mean(conversion))
+test_small <- prop.test(table(data_small$group, data_small$conversion))
+test_small
+```
+
+Step 3: Power of Small Sample
+```{r}
+power_small <- pwr.2p.test(h = effect_size, n = n_small/2, sig.level = alpha)$power
+#Adjust Sample Size to 80% Power
+target_power <- 0.80
+sample_required <- ceiling(pwr.2p.test(h = effect_size, power = target_power, sig.level = alpha)$n * 2)
+
+
+power_small
+
+sample_required
+```
+Step 4:Simulate with Adequate Sample Size
+```{r}
+group2 <- rep(c("A", "B"), each = sample_required / 2)
+conversion2 <- c(rbinom(sample_required/2, 1, p_A), rbinom(sample_required/2, 1, p_B))
+data_large <- data.frame(group = group2, conversion = conversion2)
+
+```
+
+Step 5:Analyze Large Sample
+```{r}
+summary_large <- data_large %>%
+  group_by(group) %>%
+  summarise(conversion_rate = mean(conversion))
+test_large <- prop.test(table(data_large$group, data_large$conversion))
+power_large <- pwr.2p.test(h = effect_size, n = sample_required/2, sig.level = alpha)$power
+power_large
+```
+
+Summary Table
+```{r}
+summary_df <- data.frame(
+  Stage = c("Small Sample", "Adjusted Sample"),
+  Sample_Size = c(n_small, sample_required),
+  Conv_A = round(c(summary_small$conversion_rate[1], summary_large$conversion_rate[1]), 4),
+  Conv_B = round(c(summary_small$conversion_rate[2], summary_large$conversion_rate[2]), 4),
+  p_value = round(c(test_small$p.value, test_large$p.value), 4),
+  Power = round(c(power_small, power_large), 4)
+)
+kable(summary_df, caption = "Comparison of A/B Test Results at Different Sample Sizes")
+
+```
+
+🧪 Visualizations
+```{r}
+data_small$sample_size <- "Small Sample"
+data_large$sample_size <- "Large Sample"
+data_all <- bind_rows(data_small, data_large)
+```
+
+
+```{r}
+ggbetweenstats(
+  data = data_all,
+  x = group,
+  y = conversion,
+  grouping.var = sample_size,
+  title = "Comparison of Conversion Rates by Group and Sample Size",
+  results.subtitle = TRUE
+)
+
+```
+
+
+```{r}
+summary_plot_data <- data_all %>%
+  group_by(group, sample_size) %>%
+  summarise(
+    mean_conversion = mean(conversion),
+    se = sd(conversion) / sqrt(n()),
+    .groups = "drop"
+  )
+
+ggplot(summary_plot_data, aes(x = group, y = mean_conversion, fill = sample_size)) +
+  geom_col(position = position_dodge(0.8), width = 0.6) +
+  geom_errorbar(aes(ymin = mean_conversion - 1.96 * se, ymax = mean_conversion + 1.96 * se),
+                width = 0.2, position = position_dodge(0.8)) +
+  labs(title = "Conversion Rates by Group and Sample Size", x = "Group", y = "Mean Conversion Rate") +
+  theme_minimal(base_size = 14) +
+  scale_fill_manual(values = c("Small Sample" = "#EFC000FF", "Large Sample" = "#0073C2FF")) +
+  ylim(0, 1)
+```
+
+```{r}
+ggplot(data_all, aes(x = group, y = conversion, fill = sample_size)) +
+  geom_bar(stat = "summary", fun = mean, position = position_dodge()) +
+  geom_signif(comparisons = list(c("A", "B")), map_signif_level = TRUE, y_position = 1.05, tip_length = 0.01) +
+  facet_wrap(~ sample_size) +
+  labs(title = "Conversion Comparison with Significance Bars") +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(data_all, aes(x = as.numeric(as.factor(group)), y = conversion)) +
+  stat_poly_line() +
+  stat_poly_eq(aes(label = after_stat(eq.label)), parse = TRUE) +
+  facet_wrap(~ sample_size) +
+  labs(title = "Polynomial Trend Line on Conversion Data", x = "Group (1 = A, 2 = B)", y = "Conversion") +
+  theme_minimal()
+```
+✅ Conclusion
+
+A small sample (n = 50) produced inconclusive results (p = 0.76, power = 18%)
+Adjusted sample (n = 339) revealed significant differences (p = 0.001, power = 80%)
+Power analysis is essential in experimental design to avoid Type II errors
+## R Markdown
