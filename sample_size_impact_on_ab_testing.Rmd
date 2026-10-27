@@ -1,153 +1,211 @@
 ---
-title: "A/B Test Power Analysis"
+title: "A/B Test Power Analysis: How Sample Size Changes What a Test Can Detect"
 author: "Luke Wamalwa"
-date: "2025-04-19"
-output: html_document
+date: "2025-04-19 (revised 2026-10)"
+output:
+  html_document:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 7, fig.height = 4.2)
 library(pwr)
 library(dplyr)
-library(knitr)
+library(tidyr)
 library(ggplot2)
-library(ggstatsplot)
-library(ggpubr)
-library(ggsignif)
-library(ggpmisc)
-library(gghighlight)
+library(knitr)
+
+set.seed(2025)  # every number in this report is reproducible
+dir.create("figures", showWarnings = FALSE)
 ```
 
+## Question
 
-Step 1: Simulate Small A/B Test
-```{r}
-n_small <- 50
+An A/B test compares the conversion rate of a control page (A) with a new variant (B). Suppose the true rates are **50% for A and 65% for B**. How many users does the test need to reliably detect that 15-point lift, and what goes wrong when it runs with too few?
+
+All data here is **simulated**, so the true effect is known and we can check how often a test finds it.
+
+## Step 1: Design the test before collecting data
+
+Power is a property of the **design**: it is computed before any data exists, from the effect we assume (or the smallest effect we care about), the significance level and the sample size. Plugging the effect *observed* in the data back into a power formula ("observed" or "post-hoc" power) is a known fallacy: it is a one-to-one function of the p-value and adds no information. So every power value in this report uses the assumed true effect.
+
+Cohen's *h* puts the difference between two proportions on a common scale (0.2 small, 0.5 medium, 0.8 large).
+
+```{r design}
 alpha <- 0.05
-p_A <- 0.5
+p_A <- 0.50
 p_B <- 0.65
-effect_size <- ES.h(p_B, p_A)
+h <- ES.h(p_B, p_A)
 
-group <- rep(c("A", "B"), each = n_small / 2)
-conversion <- c(rbinom(n_small/2, 1, p_A), rbinom(n_small/2, 1, p_B))
-data_small <- data.frame(group, conversion)
-head(data_small)
+# Planned small test: 50 users in total, 25 per group
+n_small_per_group <- 25
+power_small <- pwr.2p.test(h = h, n = n_small_per_group, sig.level = alpha)$power
+
+# Sample size for 80% power. pwr.2p.test returns n PER GROUP; round up.
+design_80 <- pwr.2p.test(h = h, power = 0.80, sig.level = alpha)
+n_large_per_group <- ceiling(design_80$n)
+
+data.frame(
+  quantity = c("Cohen's h", "Power with 25 per group",
+               "n per group for 80% power (exact)", "n per group (rounded up)", "Total users"),
+  value = c(round(h, 3), round(power_small, 3), round(design_80$n, 1),
+            n_large_per_group, 2 * n_large_per_group)
+) %>% kable()
 ```
 
+With 25 users per group the test has only about a **`r round(100 * power_small)`% chance** of detecting a real 15-point lift. Reaching 80% power needs **`r n_large_per_group` per group (`r 2 * n_large_per_group` in total)**.
 
-Step 2: Analyze Small Sample
-```{r}
-summary_small <- data_small %>%
-  group_by(group) %>%
-  summarise(conversion_rate = mean(conversion))
-test_small <- prop.test(table(data_small$group, data_small$conversion))
-test_small
+## Step 2: Check the power formula by simulation
+
+`pwr` uses a normal approximation. To check it, we simulate many experiments at each sample size, analyse each with the same two-proportion test (`prop.test`, no continuity correction), and record how often p < 0.05. That share *is* the power.
+
+```{r monte-carlo}
+n_sims <- 2000
+sim_once <- function(n) {
+  x <- c(rbinom(1, n, p_A), rbinom(1, n, p_B))
+  test <- prop.test(x, c(n, n), correct = FALSE)
+  c(p = test$p.value, diff = (x[2] - x[1]) / n)
+}
+
+grid <- c(10, 25, 50, 75, 100, 125, 170, 225, 300)
+mc <- lapply(grid, function(n) {
+  r <- replicate(n_sims, sim_once(n))
+  data.frame(n_per_group = n, p = r["p", ], diff = r["diff", ])
+}) %>% bind_rows()
+
+mc_power <- mc %>%
+  group_by(n_per_group) %>%
+  summarise(simulated_power = mean(p < alpha), .groups = "drop") %>%
+  mutate(analytic_power = sapply(n_per_group, function(n)
+           pwr.2p.test(h = h, n = n, sig.level = alpha)$power))
+
+kable(mc_power, digits = 3,
+      caption = "Power: pwr formula vs share of 2,000 simulated tests with p < 0.05")
 ```
 
-Step 3: Power of Small Sample
-```{r}
-power_small <- pwr.2p.test(h = effect_size, n = n_small/2, sig.level = alpha)$power
-#Adjust Sample Size to 80% Power
-target_power <- 0.80
-sample_required <- ceiling(pwr.2p.test(h = effect_size, power = target_power, sig.level = alpha)$n * 2)
+```{r power-curve}
+curve_df <- data.frame(n_per_group = 5:320) %>%
+  mutate(power = sapply(n_per_group, function(n)
+           pwr.2p.test(h = h, n = n, sig.level = alpha)$power))
 
-
-power_small
-
-sample_required
-```
-Step 4:Simulate with Adequate Sample Size
-```{r}
-group2 <- rep(c("A", "B"), each = sample_required / 2)
-conversion2 <- c(rbinom(sample_required/2, 1, p_A), rbinom(sample_required/2, 1, p_B))
-data_large <- data.frame(group = group2, conversion = conversion2)
-
-```
-
-Step 5:Analyze Large Sample
-```{r}
-summary_large <- data_large %>%
-  group_by(group) %>%
-  summarise(conversion_rate = mean(conversion))
-test_large <- prop.test(table(data_large$group, data_large$conversion))
-power_large <- pwr.2p.test(h = effect_size, n = sample_required/2, sig.level = alpha)$power
-power_large
+p_curve <- ggplot(curve_df, aes(n_per_group, power)) +
+  geom_line(colour = "#0073C2", linewidth = 1) +
+  geom_point(data = mc_power, aes(y = simulated_power), size = 2.5) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", colour = "grey40") +
+  geom_vline(xintercept = c(n_small_per_group, n_large_per_group),
+             linetype = "dotted", colour = "grey40") +
+  annotate("text", x = n_small_per_group + 5, y = 0.05, hjust = 0,
+           label = sprintf("25/group: %.0f%%", 100 * power_small)) +
+  annotate("text", x = n_large_per_group + 5, y = 0.6, hjust = 0,
+           label = sprintf("%d/group: 80%%", n_large_per_group)) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  labs(title = "Power to detect 50% vs 65% conversion",
+       subtitle = "Line: pwr formula. Points: 2,000 simulated tests each",
+       x = "Users per group", y = "Power") +
+  theme_minimal(base_size = 13)
+p_curve
+ggsave("figures/power_curve.png", p_curve, width = 7, height = 4.2, dpi = 120)
 ```
 
-Summary Table
-```{r}
-summary_df <- data.frame(
-  Stage = c("Small Sample", "Adjusted Sample"),
-  Sample_Size = c(n_small, sample_required),
-  Conv_A = round(c(summary_small$conversion_rate[1], summary_large$conversion_rate[1]), 4),
-  Conv_B = round(c(summary_small$conversion_rate[2], summary_large$conversion_rate[2]), 4),
-  p_value = round(c(test_small$p.value, test_large$p.value), 4),
-  Power = round(c(power_small, power_large), 4)
-)
-kable(summary_df, caption = "Comparison of A/B Test Results at Different Sample Sizes")
+The simulated points sit on the analytic curve, so the formula can be trusted for planning at these sample sizes.
 
+## Step 3: One experiment at each sample size
+
+This is what a single team would actually see. We report the estimated lift with a 95% confidence interval, not just the p-value.
+
+```{r single-runs}
+run_experiment <- function(n_per_group, label) {
+  conv <- data.frame(
+    group = rep(c("A", "B"), each = n_per_group),
+    conversion = c(rbinom(n_per_group, 1, p_A), rbinom(n_per_group, 1, p_B))
+  )
+  x <- tapply(conv$conversion, conv$group, sum)
+  test <- prop.test(x[c("B", "A")], c(n_per_group, n_per_group), correct = FALSE)
+  list(
+    data = mutate(conv, design = label),
+    row = data.frame(
+      Design = label,
+      Users_per_group = n_per_group,
+      Conv_A = x[["A"]] / n_per_group,
+      Conv_B = x[["B"]] / n_per_group,
+      Lift_B_minus_A = unname(test$estimate[1] - test$estimate[2]),
+      CI_low = test$conf.int[1],
+      CI_high = test$conf.int[2],
+      p_value = test$p.value,
+      Planned_power = pwr.2p.test(h = h, n = n_per_group, sig.level = alpha)$power
+    )
+  )
+}
+
+small <- run_experiment(n_small_per_group, "Small (25/group)")
+large <- run_experiment(n_large_per_group, sprintf("Powered (%d/group)", n_large_per_group))
+summary_df <- bind_rows(small$row, large$row)
+kable(summary_df, digits = 3, row.names = FALSE,
+      caption = "One simulated experiment per design (true lift = 0.15)")
 ```
 
-🧪 Visualizations
-```{r}
-data_small$sample_size <- "Small Sample"
-data_large$sample_size <- "Large Sample"
-data_all <- bind_rows(data_small, data_large)
+```{r single-runs-plot}
+plot_df <- bind_rows(small$data, large$data) %>%
+  group_by(design, group) %>%
+  summarise(x = sum(conversion), n = n(), .groups = "drop") %>%
+  rowwise() %>%
+  mutate(rate = x / n,
+         lo = prop.test(x, n, correct = FALSE)$conf.int[1],
+         hi = prop.test(x, n, correct = FALSE)$conf.int[2]) %>%
+  ungroup() %>%
+  mutate(design = factor(design, levels = c(small$row$Design, large$row$Design)))
+
+p_bars <- ggplot(plot_df, aes(group, rate, fill = group)) +
+  geom_col(width = 0.6) +
+  geom_errorbar(aes(ymin = lo, ymax = hi), width = 0.15) +
+  geom_hline(yintercept = c(p_A, p_B), linetype = "dashed", colour = "grey40") +
+  facet_wrap(~ design) +
+  scale_fill_manual(values = c(A = "#EFC000", B = "#0073C2"), guide = "none") +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  labs(title = "Observed conversion with 95% Wilson intervals",
+       subtitle = "Dashed lines: true rates (50% and 65%)",
+       x = "Group", y = "Conversion rate") +
+  theme_minimal(base_size = 13)
+p_bars
+ggsave("figures/conversion_by_design.png", p_bars, width = 7, height = 4.2, dpi = 120)
 ```
 
+In this run the small test estimated a lift of `r round(small$row$Lift_B_minus_A, 2)`, but its 95% interval runs from `r round(small$row$CI_low, 2)` to `r round(small$row$CI_high, 2)` (p = `r round(small$row$p_value, 2)`). The powered test estimated `r round(large$row$Lift_B_minus_A, 2)` with an interval of `r round(large$row$CI_low, 2)` to `r round(large$row$CI_high, 2)` (p = `r signif(large$row$p_value, 2)`). The "Planned_power" column is the design power for the true effect, not something estimated from these data.
 
-```{r}
-ggbetweenstats(
-  data = data_all,
-  x = group,
-  y = conversion,
-  grouping.var = sample_size,
-  title = "Comparison of Conversion Rates by Group and Sample Size",
-  results.subtitle = TRUE
-)
+A single run is an anecdote: with this seed the outcomes are as shown, but another seed could give a significant small test or a non-significant powered one. Step 2 is the real evidence. Note also that a non-significant result in the small test would **not** show that A and B convert equally. Its confidence interval is wide enough to include both no effect and a large one; the test simply could not tell them apart.
 
-```
+## Step 4: The hidden cost of underpowered tests (winner's curse)
 
+Underpowered tests miss real effects most of the time. They also mislead when they *do* reach significance: only the luckiest, most exaggerated estimates clear the bar.
 
-```{r}
-summary_plot_data <- data_all %>%
-  group_by(group, sample_size) %>%
+```{r winners-curse}
+curse <- mc %>%
+  filter(n_per_group %in% c(10, 25, 170)) %>%
+  group_by(n_per_group) %>%
   summarise(
-    mean_conversion = mean(conversion),
-    se = sd(conversion) / sqrt(n()),
+    share_significant = mean(p < alpha),
+    mean_lift_all = mean(diff),
+    mean_lift_if_significant = mean(diff[p < alpha]),
+    exaggeration_ratio = mean(abs(diff[p < alpha])) / (p_B - p_A),
     .groups = "drop"
   )
-
-ggplot(summary_plot_data, aes(x = group, y = mean_conversion, fill = sample_size)) +
-  geom_col(position = position_dodge(0.8), width = 0.6) +
-  geom_errorbar(aes(ymin = mean_conversion - 1.96 * se, ymax = mean_conversion + 1.96 * se),
-                width = 0.2, position = position_dodge(0.8)) +
-  labs(title = "Conversion Rates by Group and Sample Size", x = "Group", y = "Mean Conversion Rate") +
-  theme_minimal(base_size = 14) +
-  scale_fill_manual(values = c("Small Sample" = "#EFC000FF", "Large Sample" = "#0073C2FF")) +
-  ylim(0, 1)
+kable(curse, digits = 3,
+      caption = "True lift is 0.15. Averages over 2,000 simulated tests per row.")
 ```
 
-```{r}
-ggplot(data_all, aes(x = group, y = conversion, fill = sample_size)) +
-  geom_bar(stat = "summary", fun = mean, position = position_dodge()) +
-  geom_signif(comparisons = list(c("A", "B")), map_signif_level = TRUE, y_position = 1.05, tip_length = 0.01) +
-  facet_wrap(~ sample_size) +
-  labs(title = "Conversion Comparison with Significance Bars") +
-  theme_minimal()
-```
+Across all runs the estimate is unbiased at every sample size. But among significant results only, small tests overstate the lift (exaggeration ratio well above 1), while at the planned `r n_large_per_group` per group the significant estimates are close to the truth.
 
+## Conclusions
 
-```{r}
-ggplot(data_all, aes(x = as.numeric(as.factor(group)), y = conversion)) +
-  stat_poly_line() +
-  stat_poly_eq(aes(label = after_stat(eq.label)), parse = TRUE) +
-  facet_wrap(~ sample_size) +
-  labs(title = "Polynomial Trend Line on Conversion Data", x = "Group (1 = A, 2 = B)", y = "Conversion") +
-  theme_minimal()
-```
-✅ Conclusion
+- **Plan the sample size first.** Detecting a 50% → 65% lift (Cohen's *h* = `r round(h, 2)`) with 80% power at α = 0.05 needs `r n_large_per_group` users per group. With 25 per group the power is only `r round(100 * power_small)`%.
+- **The power formula holds up.** Simulated power matched `pwr.2p.test` across sample sizes.
+- **Underpowered tests fail in two ways:** they usually miss a real effect (Type II error), and when they do hit significance, they exaggerate it.
+- **Report intervals, not just p-values,** and never read "not significant" as "no difference".
 
-A small sample (n = 50) produced inconclusive results (p = 0.76, power = 18%)
-Adjusted sample (n = 339) revealed significant differences (p = 0.001, power = 80%)
-Power analysis is essential in experimental design to avoid Type II errors
-## R Markdown
+## Limitations
+
+- Simulated data with a known, fairly large effect (15 points). Real conversion lifts are usually much smaller, so real tests need far more users.
+- One test, one metric. Testing several metrics or variants needs a multiple-comparison correction, and checking results repeatedly before the planned sample size ("peeking") inflates false positives. See the companion Python project.
+
+Companion project: [ml-model-ab-test-framework](https://github.com/lukahere007/ml-model-ab-test-framework) applies this design-first workflow to comparing two ML models (accuracy and latency), with a tested Python implementation of the same sample size formula.
